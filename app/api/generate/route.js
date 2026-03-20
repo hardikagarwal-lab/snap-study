@@ -1,5 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
-
+export const maxDuration = 60;
 export async function POST(req) {
   try {
     const data = await req.json();

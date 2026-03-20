@@ -1,5 +1,7 @@
 "use client";
 import { useState } from "react";
+// NEW: We import your new compression superpower!
+import imageCompression from 'browser-image-compression';
 
 export default function Home() {
   const [notes, setNotes] = useState("");
@@ -10,11 +12,9 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
-  // NEW: State for the exact number of questions (with your defaults)
   const [numMCQ, setNumMCQ] = useState(15);
   const [numQnA, setNumQnA] = useState(10);
 
-  // Your requested options
   const mcqOptions = [10, 15, 20, 30, 40, 45, 50];
   const qnaOptions = [5, 10, 15, 20, 30, 40, 45, 50];
 
@@ -42,11 +42,30 @@ export default function Home() {
     setErrorMsg("");
 
     try {
-      // NEW: We pack the selected numbers into the payload sent to the brain
       let payload = { notes, numMCQ, numQnA };
 
       if (imageFiles.length > 0) {
-        const imagePromises = imageFiles.map(file => fileToGenerativePart(file));
+        // THE NEW COMPRESSION ENGINE
+        const imagePromises = imageFiles.map(async (file) => {
+          
+          // These are the strict rules for the compressor
+          const options = {
+            maxSizeMB: 1,          // Squeeze it down to a maximum of 1 MB
+            maxWidthOrHeight: 1920, // Resize it if it's a massive 4K photo
+            useWebWorker: true,    // Make it run fast without freezing the phone
+          };
+
+          try {
+            // Compress the file!
+            const compressedFile = await imageCompression(file, options);
+            // Turn the squeezed file into text data
+            return fileToGenerativePart(compressedFile);
+          } catch (compressError) {
+            console.error("Failed to compress, using original:", compressError);
+            return fileToGenerativePart(file); // Fallback if compression fails
+          }
+        });
+
         const imageParts = await Promise.all(imagePromises);
         payload.images = imageParts;
       }
@@ -73,7 +92,7 @@ export default function Home() {
         setErrorMsg("Something went wrong on the server.");
       }
     } catch (error) {
-      setErrorMsg("Error connecting to the AI.");
+      setErrorMsg("Error connecting to the AI. The image might still be too large, or your internet dropped.");
     }
     
     setLoading(false);
@@ -110,7 +129,6 @@ export default function Home() {
           ></textarea>
         </div>
 
-        {/* --- NEW QUIZ SETTINGS PANEL --- */}
         <div className="mb-6 p-5 border border-gray-200 rounded-lg bg-gray-50 shadow-sm">
           <h3 className="font-extrabold text-gray-800 mb-4 border-b pb-2">⚙️ Quiz Settings</h3>
 
@@ -138,7 +156,6 @@ export default function Home() {
             </div>
           </div>
         </div>
-        {/* --- END QUIZ SETTINGS --- */}
 
         {errorMsg && (
           <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg font-semibold">
@@ -151,7 +168,7 @@ export default function Home() {
           disabled={loading}
           className="w-full bg-blue-600 text-white font-extrabold py-4 rounded-lg hover:bg-blue-700 transition duration-200 shadow-md disabled:bg-blue-300 text-lg"
         >
-          {loading ? "Analyzing and Generating..." : `Generate ${numMCQ + numQnA} Questions`}
+          {loading ? "Compressing, Analyzing and Generating..." : `Generate ${numMCQ + numQnA} Questions`}
         </button>
 
         {quiz && (
